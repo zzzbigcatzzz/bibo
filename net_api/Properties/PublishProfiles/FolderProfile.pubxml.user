@@ -1,0 +1,11 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<!--
+https://go.microsoft.com/fwlink/?LinkID=208121.
+-->
+<Project>
+  <PropertyGroup>
+    <_PublishTargetUrl>D:\GItLabProject\BiboCareServices\net_api\bin\Release\net7.0\publish\</_PublishTargetUrl>
+    <History>True|2023-05-11T02:36:31.0950153Z;True|2023-05-11T09:35:13.8944420+07:00;True|2023-05-11T09:07:47.1852908+07:00;</History>
+    <LastFailureDetails />
+  </PropertyGroup>
+</Project>
