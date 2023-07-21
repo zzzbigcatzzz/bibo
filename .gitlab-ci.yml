@@ -1,0 +1,95 @@
+stages:
+  - build
+  - scan-source
+  - push
+  - deploy
+
+variables:
+  DOCKER_IMAGE: "$HARBOR_URL/$CI_PROJECT_NAMESPACE/$CI_PROJECT_TITLE"
+  PATH_TO_PROJECT: /data/$CI_PROJECT_NAMESPACE/$CI_PROJECT_TITLE
+
+build:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != 'develop' && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != $CI_DEFAULT_BRANCH
+      when: never
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^feature/ || $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^fix/
+    - when: always
+  image: docker:latest
+  services:
+    - docker:dind
+  stage: build
+  script:
+    - docker build -t "${CI_PROJECT_NAMESPACE}/${CI_PROJECT_TITLE}:lastest" .
+
+sonarqube-check:
+  rules:
+    - if: $CI_PIPELINE_SOURCE == 'merge_request_event'
+    - if: $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != 'develop' && $CI_MERGE_REQUEST_TARGET_BRANCH_NAME != $CI_DEFAULT_BRANCH
+      when: never
+    - if: $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^feature/ || $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME =~ /^fix/ || $CI_MERGE_REQUEST_SOURCE_BRANCH_NAME == 'main'
+    - when: always
+  stage: scan-source
+  image: mcr.microsoft.com/dotnet/sdk:7.0
+  variables:
+    SONAR_USER_HOME: "${CI_PROJECT_DIR}/.sonar"  # Defines the location of the analysis task cache
+    GIT_DEPTH: "0"  # Tells git to fetch all the branches of the project, required by the analysis task
+  cache:
+    key: "${CI_JOB_NAME}"
+    paths:
+      - .sonar/cache
+  script: 
+      - "apt-get update"
+      - "apt-get install --yes openjdk-11-jre"
+      - "dotnet tool install --global dotnet-sonarscanner"
+      - "export PATH=\"$PATH:$HOME/.dotnet/tools\""
+      - "dotnet sonarscanner begin /k:\"bibocare_services_AYf-U5avk2Xk6KsiM-Qn\" /d:sonar.login=\"$SONAR_TOKEN\" /d:\"sonar.host.url=$SONAR_HOST_URL\" "
+      - "dotnet build"
+      - "dotnet sonarscanner end /d:sonar.login=\"$SONAR_TOKEN\""
+  allow_failure: true
+
+
+
+push:
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: never
+  image: docker:latest
+  services:
+    - docker:dind
+  stage: push
+  script:
+    - export
+    - docker tag "${CI_PROJECT_NAMESPACE}/$CI_PROJECT_TITLE:lastest" "${DOCKER_IMAGE}:${CI_COMMIT_TAG}"
+    - echo $HARBOR_PASS | docker login -u $HARBOR_USER --password-stdin $HARBOR_URL
+    - docker push "${DOCKER_IMAGE}:${CI_COMMIT_TAG}"
+
+deploy-dev:
+  stage: deploy
+  rules:
+    - if: $CI_COMMIT_TAG
+      when: always
+    - when: never
+  variables:
+    GIT_STRATEGY: none
+  before_script:
+    - apk update && apk add openssh-client bash
+  script:
+    # chạy ssh-agent tương ứng với Gitlab Runner hiện tại
+    - eval $(ssh-agent -s)
+
+    # thêm nội dung của biến SSH_PRIVATE_KEY vào agent store
+    - bash -c 'ssh-add <(echo "$SSH_PRIVATE_KEY")'
+    
+    # tạo folder ~/.ssh
+    - mkdir -p ~/.ssh
+
+    # Thực hiện SSH vào server, login vào Registry, chuyển tới folder project
+    # Down project, pull image về, up project và xoá đi image cũ
+    - >
+      ssh $SSH_USER@$SSH_SERVER_DEV_IP -p $SSH_PORT_DEV -o StrictHostKeyChecking=no
+      "echo $HARBOR_PASS | docker login -u $HARBOR_USER --password-stdin $HARBOR_URL;
+      cd ${PATH_TO_PROJECT} && pwd;
+      echo $PASSWORD_USER | sudo sed -i '/IMAGE_VERSION/c\IMAGE_VERSION=$CI_COMMIT_TAG' .env;
+      docker compose up -d;"
