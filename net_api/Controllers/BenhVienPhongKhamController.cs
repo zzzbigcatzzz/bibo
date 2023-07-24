@@ -22,7 +22,7 @@ namespace BiboCareServices.Controllers
                 List<BenhVienPhongKham> lsItem = SqlHelper.ExecuteList<BenhVienPhongKham>(EnvMiddleware.GetValue("strConn"), "sp_getlist_phongkhambenhvien");
                 if (lsItem.Count() > 0)
                 {
-
+                    
                     res.status = 200;
                     res.message = lsItem;
                 }
@@ -34,6 +34,34 @@ namespace BiboCareServices.Controllers
             catch (Exception ex)
             {
                 DataAccess.LogBuild.CreateLogger(JsonConvert.SerializeObject(ex), "GetListBenhVienPhongKham");
+                return BadRequest(ex.Message);
+            }
+            return Ok(res);
+        }
+
+        [HttpGet]
+        [Route("GetListHieuThuoc")]
+        public async Task<IActionResult> GetListHieuThuoc(double Latitude, double Longitude,string SearchString="", int PageIndex = 1, int PageSize = 5)
+        {
+            RouteListHieuThuoc res = new RouteListHieuThuoc();
+
+            try
+            {
+                List<HieuThuoc> lsItem = SqlHelper.ExecuteList<HieuThuoc>(EnvMiddleware.GetValue("strConn"), "sp_getlist_hieuthuoc", Latitude, Longitude, SearchString, PageIndex, PageSize);
+                if (lsItem.Count() > 0)
+                {
+
+                    res.status = 200;
+                    res.message = lsItem;
+                }
+                else
+                {
+                    res.status = 400;
+                }
+            }
+            catch (Exception ex)
+            {
+                DataAccess.LogBuild.CreateLogger(JsonConvert.SerializeObject(ex), "GetListHieuThuoc");
                 return BadRequest(ex.Message);
             }
             return Ok(res);

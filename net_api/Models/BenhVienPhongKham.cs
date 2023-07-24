@@ -30,4 +30,24 @@
         public int status { set; get; }
         public List<LichKham> message { set; get; }
     }
+
+    public class HieuThuoc
+    {
+        public long Id { get; set; }
+        public string Ten { get; set; }
+        public string DiaChi { get; set; }
+        public string DienThoai { get; set; }
+        public string GioLamViec { get; set; }
+        public double Latitude { get; set; }
+        public double Longitude { get; set; }
+        public double KhoangCach { get; set;}
+        public int TotalRows { get; set; }
+        public int NumOfPages { get; set; }
+    }
+
+    public class RouteListHieuThuoc
+    {
+        public int status { set; get; }
+        public List<HieuThuoc> message { set; get; }
+    }
 }
